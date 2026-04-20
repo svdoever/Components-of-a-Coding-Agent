@@ -13,12 +13,16 @@ This repo is set up to publish as a static site on GitHub Pages.
 
 ## GitHub Pages URL
 
+Live presentation:
+
+- https://svdoever.github.io/Components-of-a-Coding-Agent/
+
 After enabling GitHub Pages with GitHub Actions, the site URL will usually be:
 
 - User or org site repo: `https://<owner>.github.io/`
 - Project site repo: `https://<owner>.github.io/<repo>/`
 
-For this repository, replace `<owner>` with your GitHub username or organization and `<repo>` with the repository name.
+For this repository, the published URL is `https://svdoever.github.io/Components-of-a-Coding-Agent/`.
 
 ## Local Preview
 
