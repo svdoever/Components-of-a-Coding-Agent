@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Components of a Coding Agent — a slide deck on how tools, memory, and repo context make an LLM useful, and how GitHub Copilot in VS Code maps to each part.">
+<link rel="canonical" href="./">
+<title>Components of a Coding Agent</title>
+<script src="deck-stage.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f2ed;
+    --bg-alt: #e9e6df;
+    --bg-dark: #1a1c1f;
+    --ink: #17181a;
+    --ink-soft: #43474d;
+    --ink-mute: #7a7e85;
+    --rule: #cfcbc1;
+    --rule-soft: #ddd9d0;
+    --accent: oklch(0.55 0.13 250);
+    --accent-soft: oklch(0.93 0.04 250);
+    --warn: oklch(0.65 0.14 50);
+  }
+
+  html, body { margin: 0; padding: 0; background: #000; }
+
+  section {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+
+  .slide-frame {
+    width: 100%; height: 100%;
+    box-sizing: border-box;
+    padding: 100px 100px 80px 100px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Header chrome */
+  .slide-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 52px;
+  }
+  .slide-head .eyebrow { color: var(--accent); font-weight: 500; }
+  .slide-head .pagenum { color: var(--ink-mute); }
+
+  h1.title {
+    font-size: 84px;
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.028em;
+    margin: 0 0 28px 0;
+    max-width: 1500px;
+    text-wrap: balance;
+  }
+  h2.title {
+    font-size: 64px;
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+    margin: 0 0 52px 0;
+    max-width: 1500px;
+    text-wrap: balance;
+  }
+  h3.subtitle {
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--ink-soft);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    margin: 0;
+    max-width: 1100px;
+    text-wrap: pretty;
+  }
+  p.body { font-size: 28px; line-height: 1.45; color: var(--ink-soft); margin: 0; max-width: 1000px; text-wrap: pretty; }
+  p.lede { font-size: 34px; line-height: 1.4; color: var(--ink); margin: 0; max-width: 1400px; text-wrap: pretty; font-weight: 400; }
+
+  .mono { font-family: "JetBrains Mono", monospace; font-weight: 500; }
+  .kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.85em;
+    padding: 3px 10px;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+
+  /* Utility layouts */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; flex: 1; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; flex: 1; }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 36px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .card h4 {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .card p { font-size: 24px; line-height: 1.45; color: var(--ink-soft); margin: 0; }
+  .card .tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Number labels */
+  .numlabel {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+  }
+
+  /* Two-column concept + copilot mapping */
+  .split {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 0;
+    flex: 1;
+    border-top: 1px solid var(--rule);
+  }
+  .split > div {
+    padding: 48px 56px 20px 0;
+  }
+  .split > div + div {
+    padding: 48px 0 20px 56px;
+    border-left: 1px solid var(--rule);
+  }
+  .split h4 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    margin: 0 0 24px 0;
+    font-weight: 500;
+  }
+  .split .col-title {
+    font-size: 38px;
+    font-weight: 600;
+    line-height: 1.15;
+    margin: 0 0 24px 0;
+    letter-spacing: -0.015em;
+  }
+  .split ul { margin: 0; padding: 0; list-style: none; }
+  .split li {
+    font-size: 24px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    padding: 12px 0;
+    border-top: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+  }
+  .split li:first-child { border-top: none; padding-top: 0; }
+  .split li::before {
+    content: "→";
+    color: var(--accent);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .split li > span { display: block; }
+
+  /* Section divider slide */
+  .section-header {
+    background: var(--bg-dark);
+    color: #f4f2ed;
+  }
+  .section-header .slide-frame { justify-content: center; }
+  .section-header .slide-head { border-color: #333; color: #888; }
+  .section-header .slide-head .eyebrow { color: oklch(0.75 0.13 250); }
+
+  /* Cover */
+  .cover .slide-frame { justify-content: space-between; }
+  .cover .eyebrow-big {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+  .cover h1 {
+    font-size: 140px;
+    font-weight: 600;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    margin: 0;
+    max-width: 1600px;
+    text-wrap: balance;
+  }
+  .cover .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    border-top: 1px solid var(--rule);
+    padding-top: 24px;
+  }
+  .cover .meta .right { text-align: right; }
+
+  /* Loop diagram */
+  .loop-wrap {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    align-items: stretch;
+  }
+  .loop-node {
+    background: #fff;
+    border: 1px solid var(--rule);
+    padding: 28px 28px 32px 28px;
+    position: relative;
+    min-height: 180px;
+  }
+  .loop-node .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .loop-node h5 { font-size: 30px; margin: 0 0 10px 0; font-weight: 600; letter-spacing: -0.01em; }
+  .loop-node p { font-size: 24px; line-height: 1.4; color: var(--ink-soft); margin: 0; }
+  .loop-arrow {
+    position: absolute;
+    top: 50%;
+    right: -22px;
+    width: 22px;
+    height: 1px;
+    background: var(--ink-mute);
+  }
+  .loop-arrow::after {
+    content: "";
+    position: absolute;
+    right: 0; top: -3px;
+    width: 7px; height: 7px;
+    border-top: 1px solid var(--ink-mute);
+    border-right: 1px solid var(--ink-mute);
+    transform: rotate(45deg);
+  }
+
+  /* Table */
+  .cmp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 24px;
+  }
+  .cmp-table th, .cmp-table td {
+    text-align: left;
+    padding: 20px 22px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .cmp-table th {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-mute);
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+  }
+  .cmp-table td.label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    width: 80px;
+  }
+  .cmp-table td.concept {
+    font-weight: 600;
+    font-size: 24px;
+    width: 340px;
+  }
+  .cmp-table td.desc {
+    color: var(--ink-soft);
+    line-height: 1.4;
+    font-size: 24px;
+  }
+  .cmp-table td.map {
+    color: var(--ink);
+    line-height: 1.4;
+    font-size: 24px;
+  }
+
+  /* Footer hint */
+  .foot {
+    position: absolute;
+    bottom: 36px;
+    left: 100px;
+    right: 100px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Prompt-shape diagram */
+  .prompt-stack {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    row-gap: 10px;
+    column-gap: 20px;
+    align-items: center;
+  }
+  .prompt-stack .side {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: right;
+  }
+  .stack-row {
+    background: #fff;
+    border: 1px solid var(--rule);
+    padding: 10px 20px;
+    font-size: 24px;
+  }
+  .stack-row.stable {
+    background: var(--accent-soft);
+    border-color: oklch(0.8 0.08 250);
+  }
+  .stack-row .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .stack-row.stable .lbl { color: var(--accent); }
+
+  /* Big number hero */
+  .hero-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 320px;
+    line-height: 0.85;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+  }
+
+  /* Two-row feature */
+  .feature-rows { display: flex; flex-direction: column; gap: 20px; }
+  .feature-row {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 32px;
+    padding: 24px 0;
+    border-top: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .feature-row:first-child { border-top: none; padding-top: 0; }
+  .feature-row .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .feature-row .v { font-size: 26px; line-height: 1.4; color: var(--ink); }
+
+  /* Callout box */
+  .callout {
+    background: #fff;
+    border: 1px solid var(--rule);
+    padding: 40px;
+    margin-top: 32px;
+  }
+  .callout .q {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .callout .a {
+    font-size: 28px;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+
+  /* Diagram boxes for subagent slide */
+  .sub-diagram {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .sub-box {
+    background: #fff;
+    border: 1px solid var(--rule);
+    padding: 32px;
+    min-height: 300px;
+    position: relative;
+  }
+  .sub-box.sub {
+    background: var(--accent-soft);
+    border-color: oklch(0.8 0.08 250);
+  }
+  .sub-box h5 { font-size: 28px; margin: 0 0 8px 0; letter-spacing: -0.01em; }
+  .sub-box .role {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .sub-box ul { margin: 0; padding: 0; list-style: none; font-size: 24px; line-height: 1.5; color: var(--ink-soft); }
+  .sub-box li { padding: 4px 0; }
+  .arrow-down {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--ink-mute);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .arrow-down svg { margin: 10px 0; }
+
+  /* Six circle overview */
+  .six-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+  }
+  .six-cell {
+    background: #fff;
+    border: 1px solid var(--rule);
+    padding: 32px 36px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .six-cell .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .six-cell h4 {
+    font-size: 34px;
+    font-weight: 600;
+    margin: 8px 0 12px 0;
+    letter-spacing: -0.015em;
+  }
+  .six-cell p {
+    font-size: 24px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* Cover decoration */
+  .cover-diagram {
+    position: absolute;
+    right: 100px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 520px;
+    height: 520px;
+  }
+
+  .corner-mark {
+    position: absolute;
+    top: 44px;
+    right: 100px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 24px;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+  }
+
+  .zoomable-image {
+    cursor: zoom-in;
+  }
+
+  .image-lightbox {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    cursor: zoom-out;
+  }
+
+  .image-lightbox.is-open {
+    display: flex;
+  }
+
+  .image-lightbox img {
+    max-width: min(92vw, 1800px);
+    max-height: 92vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  }
+
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+  <!-- 1. COVER -->
+  <section data-label="Cover" class="cover">
+    <div class="slide-frame">
+      <div>
+        <div class="eyebrow-big">Deep Dive · 31 slides</div>
+      </div>
+      <div>
+        <h1>Components of a<br>Coding Agent</h1>
+        <p class="body" style="margin-top: 40px; font-size: 32px; max-width: 1200px;">How tools, memory, and repo context make an LLM useful — and how GitHub Copilot in VS Code maps to each piece.</p>
+      </div>
+      <div class="meta">
+        <div>
+          <div>Based on · Sebastian Raschka</div>
+          <div style="color: var(--ink); margin-top: 4px;">magazine.sebastianraschka.com</div>
+        </div>
+        <div class="right">
+          <div>Ref · Copilot in VS Code</div>
+          <div style="color: var(--ink); margin-top: 4px;">code.visualstudio.com/docs/copilot</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. FROM MODEL TO AGENT -->
+  <section data-label="From Model to Agent">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">Framing</span>
+        <span class="pagenum">02 / 31</span>
+      </div>
+      <h2 class="title">From Model to Agent</h2>
+      <p class="lede" style="margin-bottom: 52px;">Much of the recent progress in practical LLM systems is not about better models — it is about how we use them.</p>
+      <div class="grid-3">
+        <div class="card">
+          <div class="tag">Engine</div>
+          <h4>LLM</h4>
+          <p>The raw next-token model. General-purpose, stateless, one shot at a time.</p>
+        </div>
+        <div class="card">
+          <div class="tag">Beefed-up engine</div>
+          <h4>Reasoning model</h4>
+          <p>An LLM trained or prompted to spend more inference-time compute on intermediate steps and self-verification.</p>
+        </div>
+        <div class="card" style="background: var(--bg-dark); color: #eee; border-color: #333;">
+          <div class="tag" style="color: oklch(0.78 0.13 250);">The vehicle</div>
+          <h4 style="color:#fff;">Agent harness</h4>
+          <p style="color:#bbb;">A control loop around the model that observes, inspects, chooses, and acts — with tools, memory, and feedback from the environment: test results, command output, file changes, and other signals that shape the next step.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. THE AGENT LOOP -->
+  <section data-label="Agent Loop">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">Framing</span>
+        <span class="pagenum">03 / 31</span>
+      </div>
+      <h2 class="title">The agent loop</h2>
+      <p class="lede" style="margin-bottom: 60px;">A coding harness is a model family plus an iterative loop plus runtime supports.</p>
+
+      <div class="loop-wrap">
+        <div class="loop-node">
+          <div class="n">01 · Observe</div>
+          <h5>Collect</h5>
+          <p>Gather information from the environment — repo state, file contents, tool output.</p>
+          <div class="loop-arrow"></div>
+        </div>
+        <div class="loop-node">
+          <div class="n">02 · Inspect</div>
+          <h5>Analyze</h5>
+          <p>Interpret what was observed. What does it mean for the task?</p>
+          <div class="loop-arrow"></div>
+        </div>
+        <div class="loop-node">
+          <div class="n">03 · Choose</div>
+          <h5>Select</h5>
+          <p>Pick the next step: call a tool, ask the user, edit a file, or stop.</p>
+          <div class="loop-arrow"></div>
+        </div>
+        <div class="loop-node">
+          <div class="n">04 · Act</div>
+          <h5>Execute</h5>
+          <p>Run the chosen action, feed results back into the loop, repeat.</p>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span>observe → inspect → choose → act</span>
+        <span>loop until done</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. THE CODING HARNESS -->
+  <section data-label="Coding Harness">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">Framing</span>
+        <span class="pagenum">04 / 31</span>
+      </div>
+      <h2 class="title">The coding harness does<br>most of the work</h2>
+      <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 80px; align-items: start;">
+        <div>
+          <p class="body" style="font-size: 30px; line-height: 1.45;">The harness is the software layer around the model. It assembles prompts, exposes tools, tracks file state, applies edits, runs commands, manages permissions, caches stable prefixes, and stores memory.</p>
+          <p class="body" style="font-size: 30px; line-height: 1.45; margin-top: 28px;">When the top models like <strong>Claude Opus 4.6</strong> and <strong>GPT-5.4</strong> are close in raw capability, the harness is what distinguishes one product from another.</p>
+        </div>
+        <div class="callout" style="margin-top: 0;">
+          <div class="q">The claim</div>
+          <div class="a">A lot of apparent <span class="mono" style="color: var(--accent);">“model quality”</span> is really context quality.</div>
+        </div>
+      </div>
+      <div style="margin-top: 34px; border-top: 1px solid var(--rule); padding-top: 24px; display: grid; grid-template-columns: 180px 1fr 180px 1fr; gap: 20px 28px; align-items: start;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);">CLI</div>
+        <div style="font-size: 26px; line-height: 1.4; color: var(--ink);">Claude Code, OpenCode, Pi, ...</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);">IDE</div>
+        <div style="font-size: 26px; line-height: 1.4; color: var(--ink);">VS Code with GitHub Copilot, Cursor, Antigravity,...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. SIX COMPONENTS OVERVIEW -->
+  <section data-label="Six Components">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">The six components</span>
+        <span class="pagenum">05 / 31</span>
+      </div>
+      <h2 class="title">Six building blocks of a coding agent</h2>
+      <div class="six-grid">
+        <div class="six-cell">
+          <div><div class="num">01</div><h4>Live Repo Context</h4></div>
+          <p>Gather stable facts about the workspace up front so the model isn't starting from zero.</p>
+        </div>
+        <div class="six-cell">
+          <div><div class="num">02</div><h4>Prompt Shape & Cache Reuse</h4></div>
+          <p>Separate the stable prefix from the changing tail so repeated turns stay cheap.</p>
+        </div>
+        <div class="six-cell">
+          <div><div class="num">03</div><h4>Structured Tools & Permissions</h4></div>
+          <p>A named tool vocabulary with validation, path checks, and approval gates.</p>
+        </div>
+        <div class="six-cell">
+          <div><div class="num">04</div><h4>Context Reduction</h4></div>
+          <p>Clip, deduplicate, and summarize so the prompt doesn't bloat across turns.</p>
+        </div>
+        <div class="six-cell">
+          <div><div class="num">05</div><h4>Structured Session Memory</h4></div>
+          <p>A full transcript for resumption and a lighter working memory for task continuity.</p>
+        </div>
+        <div class="six-cell">
+          <div><div class="num">06</div><h4>Bounded Subagents</h4></div>
+          <p>Delegate side tasks to child agents with inherited — but constrained — context.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. SECTION HEADER — 1 -->
+  <section data-label="01 Section">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Component 01</span>
+        <span class="pagenum">06 / 31</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 60px;">
+        <div class="hero-num">01</div>
+        <div>
+          <h2 class="title" style="color: #fff; margin: 0 0 16px 0;">Live Repo Context</h2>
+          <p class="body" style="font-size: 32px; color: #bbb; max-width: 900px;">Collect stable facts about the workspace before any work begins.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. COMPONENT 1 + COPILOT -->
+  <section data-label="01 Copilot Mapping">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">01 · Live Repo Context</span>
+        <span class="pagenum">07 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 56px; margin-bottom: 32px;">&#8220;Fix the tests&#8221; is not self-contained.</h2>
+      <p class="lede" style="margin-bottom: 40px; font-size: 30px;">The agent needs to know the repo root, branch, layout, and any project instructions before it can act.</p>
+
+      <div class="split">
+        <div>and user-level instructions act as a stable long-term memory
+          <h4>Concept · the workspace summary</h4>
+          <div class="col-title">Stable facts, up front</div>
+          <ul>
+            <li><span>Is this a Git repo? Which branch, which working tree?</span></li>
+            <li><span>Is there a README or <span class="mono">AGENTS.md</span> that names the test command?</span></li>
+            <li><span>What is the repo layout — where should new code live?</span></li>
+            <li><span>What is in progress according to <span class="mono">git status</span>?</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Copilot in VS Code</h4>
+          <div class="col-title">Workspace awareness</div>
+          <ul style="font-size: 22px;">
+            <li><span><span class="mono">#codebase</span> and <span class="mono">@workspace</span> expose the open folder as grounding for every chat turn.</span></li>
+            <li><span>Copilot indexes files, symbols, and Git state so answers reference what's actually checked out.</span></li>
+            <li><span>Repo guidance can come from <span class="mono">AGENTS.md</span>, <span class="mono">.github/copilot-instructions.md</span>, and scoped <span class="mono">*.instructions.md</span> files.</span></li>
+            <li><span>Skills are selected on demand by matching their description to the current task, then loaded only when relevant.</span></li>
+            <li><span>Open editors, selections, and terminal output are attached automatically.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. SECTION HEADER 2 -->
+  <section data-label="02 Section">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Component 02</span>
+        <span class="pagenum">08 / 31</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 60px;">
+        <div class="hero-num">02</div>
+        <div>
+          <h2 class="title" style="color: #fff; margin: 0 0 16px 0;">Prompt Shape & Cache Reuse</h2>
+          <p class="body" style="font-size: 32px; color: #bbb; max-width: 900px;">Separate what rarely changes from what changes every turn.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. PROMPT SHAPE + COPILOT -->
+  <section data-label="02 Copilot Mapping">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">02 · Prompt Shape & Cache Reuse</span>
+        <span class="pagenum">09 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 52px; margin-bottom: 28px;">Stable prefix + changing tail</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 80px; flex: 1;">
+        <div>
+          <p class="body" style="margin-bottom: 28px;">Don't rebuild everything as one undifferentiated prompt. Keep the stable part stable so the runtime can reuse its cache.</p>
+          <div class="prompt-stack">
+            <div class="side">Stable<br>prefix</div>
+            <div class="stack-row stable"><span class="lbl">General instructions</span>Agent rules, style, tone</div>
+            <div class="side">&nbsp;</div>
+            <div class="stack-row stable"><span class="lbl">Tool definitions</span>Names, schemas, descriptions</div>
+            <div class="side">&nbsp;</div>
+            <div class="stack-row stable"><span class="lbl">Workspace summary</span>Repo facts from the repo context</div>
+            <div class="side">Changing<br>tail</div>
+            <div class="stack-row"><span class="lbl">Short-term memory</span>Distilled task state</div>
+            <div class="side">&nbsp;</div>
+            <div class="stack-row"><span class="lbl">Recent transcript</span>Last N turns, compressed</div>
+            <div class="side">&nbsp;</div>
+            <div class="stack-row"><span class="lbl">User request</span>The new message</div>
+          </div>
+        </div>
+        <div>
+          <h4 style="font-family: 'JetBrains Mono', monospace; font-size: 24px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-mute); margin: 0 0 24px 0; font-weight: 500;">Copilot in VS Code</h4>
+          <div style="font-size: 36px; font-weight: 600; line-height: 1.12; margin: 0 0 18px 0; letter-spacing: -0.015em;">Prompt assembly &<br>customization</div>
+          <div class="feature-rows" style="gap: 6px;">
+            <div class="feature-row" style="padding: 10px 0; grid-template-columns: 220px 1fr; gap: 22px;">
+              <div class="k" style="font-size: 22px;">repo rules</div>
+              <div class="v" style="font-size: 22px;"><span class="mono">copilot-instructions.md</span> adds project-wide rules to every turn.</div>
+            </div>
+            <div class="feature-row" style="padding: 10px 0; grid-template-columns: 220px 1fr; gap: 22px;">
+              <div class="k" style="font-size: 22px;">scoped rules</div>
+              <div class="v" style="font-size: 22px;"><span class="mono">.instructions.md</span> targets folders or file types via <span class="mono">applyTo</span>.</div>
+            </div>
+            <div class="feature-row" style="padding: 10px 0; grid-template-columns: 220px 1fr; gap: 22px;">
+              <div class="k" style="font-size: 22px;">prompt files</div>
+              <div class="v" style="font-size: 22px;"><span class="mono">.prompt.md</span> saves repeatable tasks as slash commands.</div>
+            </div>
+            <div class="feature-row" style="padding: 10px 0; grid-template-columns: 220px 1fr; gap: 22px;">
+              <div class="k" style="font-size: 22px;">modes / agents</div>
+              <div class="v" style="font-size: 22px;">Preset prompts, tool access, and behavior for planning, editing, or review.</div>
+            </div>
+            <div class="feature-row" style="padding: 10px 0; grid-template-columns: 220px 1fr; gap: 22px;">
+              <div class="k" style="font-size: 22px;">models</div>
+              <div class="v" style="font-size: 22px;">Pick different models for different jobs without changing the harness.</div>
+            </div>
+            <div class="feature-row" style="padding: 10px 0; grid-template-columns: 220px 1fr; gap: 22px;">
+              <div class="k" style="font-size: 22px;">context vars</div>
+              <div class="v" style="font-size: 22px;"><span class="mono">#file</span>, <span class="mono">#selection</span>, <span class="mono">#symbol</span> attach the changing tail each turn.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. SECTION HEADER 3 -->
+  <section data-label="03 Section">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Component 03</span>
+        <span class="pagenum">10 / 31</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 60px;">
+        <div class="hero-num">03</div>
+        <div>
+          <h2 class="title" style="color: #fff; margin: 0 0 16px 0;">Structured Tools & Permissions</h2>
+          <p class="body" style="font-size: 32px; color: #bbb; max-width: 900px;">A named tool vocabulary, validated, optionally gated by approval.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11. COMPONENT 3 + COPILOT -->
+  <section data-label="03 Copilot Mapping">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">03 · Structured Tools & Permissions</span>
+        <span class="pagenum">11 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 52px; margin-bottom: 40px;">The harness gives the model less freedom — and more usefulness.</h2>
+
+      <div class="split">
+        <div>
+          <h4>Concept · tool-call lifecycle</h4>
+          <div class="col-title">Emit → validate → approve → run</div>
+          <ul>
+            <li><span>The model emits a <em>structured</em> action, not free-form shell.</span></li>
+            <li><span>Runtime checks: known tool? valid args? path inside workspace?</span></li>
+            <li><span>Optional approval gate for anything that mutates the world.</span></li>
+            <li><span>Only clipped, filtered, or summarized results flow back into the loop.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Copilot in VS Code</h4>
+          <div class="col-title">Agents (former chat modes) & tool sets</div>
+          <ul>
+            <li><span><strong>Ask</strong> explains, <strong>Edit</strong> proposes diffs, <strong>Agent</strong> can run tools and terminal commands autonomously.</span></li>
+            <li><span>Built-in tools: read/write files, codebase search, terminal, tests, problems panel, Git.</span></li>
+            <li><span>Any MCP server can be registered as an additional tool set.</span></li>
+            <li><span><strong>Default approvals</strong> use your configured confirmation rules, <strong>Bypass approvals</strong> auto-approves every tool call, and <strong>Autopilot</strong> runs a full autonomous loop end to end — effectively a bounded "Ralph Loop."</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12. SECTION HEADER 4 -->
+  <section data-label="04 Section">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Component 04</span>
+        <span class="pagenum">12 / 31</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 60px;">
+        <div class="hero-num">04</div>
+        <div>
+          <h2 class="title" style="color: #fff; margin: 0 0 16px 0;">Minimizing Context Bloat</h2>
+          <p class="body" style="font-size: 32px; color: #bbb; max-width: 900px;">Clip, deduplicate, summarize. A lot of &#8220;model quality&#8221; is context quality.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13. COMPONENT 4 + COPILOT -->
+  <section data-label="04 Copilot Mapping">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">04 · Minimizing Context Bloat</span>
+        <span class="pagenum">13 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 52px; margin-bottom: 28px;">Long context is expensive — and noisy.</h2>
+
+      <div class="split">
+        <div>
+          <h4>Concept · compaction strategies</h4>
+          <div class="col-title">Keep recency rich, older history cheap</div>
+          <ul>
+            <li><span><strong>Clipping</strong> — cap any single snippet so no one tool output takes over the prompt.</span></li>
+            <li><span><strong>Deduplication</strong> — collapse repeated file reads into one canonical view.</span></li>
+            <li><span><strong>Summarization</strong> — compress older turns more aggressively than recent ones.</span></li>
+            <li><span>Net effect: recent events are rich, distant events are a paragraph.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Copilot in VS Code</h4>
+          <div class="col-title">Summarize &amp; start fresh</div>
+          <ul style="font-size: 22px;">
+            <li><span><strong>Summarize Conversation</strong> — distills the current chat into a compact recap that seeds a new session.</span></li>
+            <li><span>Context is tracked per chat, and a high-water warning suggests compaction before the window fills.</span></li>
+            <li><span>File attachments and tool outputs are referenced by handle, not copied in full on every turn.</span></li>
+            <li><span>&#8220;New Chat&#8221; is the deliberate reset — cheap to branch a fresh session.</span></li>
+          </ul>
+          <div style="margin-top: 18px; background: #fff; border: 1px solid var(--rule); padding: 12px;">
+            <img src="Context-details.png" alt="Copilot context window screenshot" class="zoomable-image" tabindex="0" style="display: block; width: 100%; max-height: 250px; object-fit: contain; object-position: center top;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14. SECTION HEADER 5 -->
+  <section data-label="05 Section">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Component 05</span>
+        <span class="pagenum">14 / 31</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 60px;">
+        <div class="hero-num">05</div>
+        <div>
+          <h2 class="title" style="color: #fff; margin: 0 0 16px 0;">Structured Session Memory</h2>
+          <p class="body" style="font-size: 32px; color: #bbb; max-width: 900px;">Two layers: a durable transcript and a lighter working memory.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 15. COMPONENT 5 + COPILOT -->
+  <section data-label="05 Copilot Mapping">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">05 · Structured Session Memory</span>
+        <span class="pagenum">15 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 52px; margin-bottom: 28px;">Prompt-time vs. storage-time history</h2>
+      <p class="lede" style="margin-bottom: 36px; font-size: 28px;">Context Reduction asked <em>how much past goes into the next turn</em>. Structured Session Memory asks <em>what the agent keeps over time</em>.</p>
+
+      <div class="split">
+        <div>
+          <h4>Concept · two session layers</h4>
+          <div class="col-title">Transcript + working memory</div>
+          <ul>
+            <li><span><strong>Full transcript</strong> — append-only record of every request, tool call, and reply. Resumable.</span></li>
+            <li><span><strong>Working memory</strong> — a small, explicitly maintained summary of the current task and key files.</span></li>
+            <li><span>Usually persisted as JSON on disk so sessions survive a crash.</span></li>
+            <li><span>Different jobs: transcript for reconstruction, memory for continuity.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Copilot in VS Code</h4>
+          <div class="col-title">Chat history & pinned guidance</div>
+          <ul>
+            <li><span>Chat sessions persist across restarts — any past chat can be reopened and continued.</span></li>
+            <li><span><span class="mono">AGENTS.md</span>, <span class="mono">copilot-instructions.md</span>, scoped <span class="mono">*.instructions.md</span>, and user-level instructions act as stable long-term memory.</span></li>
+            <li><span>Custom agents bundle a system prompt and tool allow-list as a durable preset.</span></li>
+            <li><span>Prompt files save reusable task recipes to the repo itself.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 16. SECTION HEADER 6 -->
+  <section data-label="06 Section">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Component 06</span>
+        <span class="pagenum">16 / 31</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 60px;">
+        <div class="hero-num">06</div>
+        <div>
+          <h2 class="title" style="color: #fff; margin: 0 0 16px 0;">Delegation with Subagents</h2>
+          <p class="body" style="font-size: 32px; color: #bbb; max-width: 900px;">Spawn a child for the side question — but bind it tightly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17. COMPONENT 6 + COPILOT -->
+  <section data-label="06 Copilot Mapping">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">06 · Delegation with Subagents</span>
+        <span class="pagenum">17 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 52px; margin-bottom: 28px;">The important part is not launching a helper agent, but controlling exactly what it can do.</h2>
+
+      <div style="display: grid; grid-template-columns: 1.05fr 1fr; gap: 72px; flex: 1;">
+        <div>
+          <div class="sub-diagram" style="grid-template-columns: 1fr; gap: 12px;">
+            <div class="sub-box">
+              <div class="role">Main agent</div>
+              <h5>Owns the task</h5>
+              <ul>
+                <li>Full tool access</li>
+                <li>Read &amp; write the workspace</li>
+                <li>Keeps the long-running transcript</li>
+              </ul>
+            </div>
+            <div class="arrow-down">
+              <span>delegate · bounded</span>
+              <svg width="20" height="28" viewBox="0 0 20 28" fill="none"><path d="M10 0 L10 22 M2 18 L10 26 L18 18" stroke="#7a7e85" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="sub-box sub">
+              <div class="role">Subagent</div>
+              <h5>One side question</h5>
+              <ul>
+                <li>Inherits just enough context</li>
+                <li>Read-only or scoped tools</li>
+                <li>Limited recursion depth &amp; time</li>
+                <li>Returns a summary, then exits</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h4 style="font-family: 'JetBrains Mono', monospace; font-size: 24px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-mute); margin: 0 0 24px 0; font-weight: 500;">Copilot in VS Code</h4>
+          <div style="font-size: 38px; font-weight: 600; line-height: 1.15; margin: 0 0 28px 0; letter-spacing: -0.015em;">Agent mode, tasks,<br>and Copilot coding agent</div>
+          <div class="feature-rows">
+            <div class="feature-row">
+              <div class="k">Agent mode</div>
+              <div class="v">Runs a local observe → act loop inside the editor, with tool calls and edits scoped to the workspace.</div>
+            </div>
+            <div class="feature-row">
+              <div class="k">MCP subtasks</div>
+              <div class="v">External MCP servers can expose scoped tool sets that behave like bounded helpers.</div>
+            </div>
+            <div class="feature-row">
+              <div class="k">Copilot coding agent</div>
+              <div class="v">Full tasks can be handed off to a cloud agent that opens a pull request — the ultimate &#8220;bounded delegation.&#8221;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18A. CUSTOMIZATION SECTION INTRO -->
+  <section data-label="Customization Intro">
+    <div class="slide-frame section-header">
+      <div class="slide-head">
+        <span class="eyebrow">Customization VS Code + GitHub Copilot</span>
+        <span class="pagenum">18 / 31</span>
+      </div>
+      <div>
+        <h2 class="title" style="color: #fff; font-size: 92px; margin-bottom: 36px;">Customizing the coding harness</h2>
+        <p class="body" style="font-size: 34px; color: #bbb; max-width: 1400px; line-height: 1.4;">VS Code + GitHub Copilot expose eight levers for shaping the six components of a coding agent to your project, your standards, and your workflow.</p>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 80px;">
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">01</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Instructions</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">02</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Prompt Files</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">03</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Custom Agents</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">04</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Agent Skills</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">05</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Language Models</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">06</div><div style="font-size: 26px; color: #fff; font-weight: 600;">MCP</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">07</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Hooks</div></div>
+          <div style="border: 1px solid #333; padding: 24px 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; color: oklch(0.78 0.13 250); margin-bottom: 8px;">08</div><div style="font-size: 26px; color: #fff; font-weight: 600;">Plugins</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18B. INSTRUCTIONS -->
+  <section data-label="Instructions">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 01 / 08</span><span class="pagenum">19 / 31</span></div>
+      <div class="numlabel">01 · Instructions</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Teach the AI your coding standards</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">Markdown rules, auto-attached</div>
+          <ul>
+            <li><span><strong>Always-on</strong> — <span class="mono">.github/copilot-instructions.md</span> applies to every request.</span></li>
+            <li><span><strong>File-based</strong> — <span class="mono">*.instructions.md</span> with an <span class="mono">applyTo</span> glob targets specific file types or folders.</span></li>
+            <li><span>Run <span class="mono">/init</span> in chat to bootstrap an instructions file tailored to your codebase.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Stabilizes the prefix</div>
+          <ul>
+            <li><span>Directly reinforces <strong>Live Repo Context</strong> — instructions become canonical workspace facts.</span></li>
+            <li><span>Feeds <strong>Prompt Shape &amp; Cache Reuse</strong> — a cacheable stable block the runtime can reuse across turns.</span></li>
+            <li><span>Acts as durable long-term memory in <strong>Structured Session Memory</strong> — team conventions survive every new chat.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18C. PROMPT FILES -->
+  <section data-label="Prompt Files">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 02 / 08</span><span class="pagenum">20 / 31</span></div>
+      <div class="numlabel">02 · Prompt Files</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Repeatable tasks as slash commands</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">A <span class="mono">.prompt.md</span> per task</div>
+          <ul>
+            <li><span>Reusable Markdown that encodes a specific task and appears as a slash command in chat.</span></li>
+            <li><span>Can reference specific files, tools, and context so the AI starts with everything it needs.</span></li>
+            <li><span>Good for scaffolding a component, generating tests, or drafting a PR description.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Turns prose into a tool call</div>
+          <ul>
+            <li><span>Bridges <strong>Prompt Shape &amp; Cache Reuse</strong> and <strong>Structured Tools &amp; Permissions</strong> — a saved prompt behaves like a named action.</span></li>
+            <li><span>Cuts repeated context assembly; the runtime pulls the exact files the prompt names, not a guess.</span></li>
+            <li><span>Shrinks the token footprint of routine work, helping <strong>Context Reduction</strong>.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18D. CUSTOM AGENTS -->
+  <section data-label="Custom Agents">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 03 / 08</span><span class="pagenum">21 / 31</span></div>
+      <div class="numlabel">03 · Custom Agents</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Specialized personas, connected by handoffs</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">One <span class="mono">.agent.md</span>, one role</div>
+          <ul>
+            <li><span>A named persona — security reviewer, planner, implementer — defined by behavior, tool allow-list, and model preference.</span></li>
+            <li><span>Defined in a single Markdown file; frontmatter declares tools, model, and allowed subagents.</span></li>
+            <li><span>Selectable from the chat agents dropdown or invoked as a subagent by another agent.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Shapes tools and delegation</div>
+          <ul>
+            <li><span>Narrows <strong>Structured Tools &amp; Permissions</strong> — a reviewer can be restricted to read-only tools, never <span class="mono">edit</span>.</span></li>
+            <li><span>Is the primary mechanism for <strong>Bounded Subagents</strong> — each agent brings its own stable prefix and model.</span></li>
+            <li><span><strong>Handoffs</strong> chain agents into guided sequential workflows — see next slide.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18D-2. HANDOFFS -->
+  <section data-label="Handoffs">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 03 / 08 · Handoffs</span><span class="pagenum">22 / 31</span></div>
+      <div class="numlabel">03a · Handoffs</div>
+      <h2 class="title" style="font-size: 54px; margin-bottom: 20px;">Guided, sequential workflows between agents</h2>
+      <p class="lede" style="margin-bottom: 28px; font-size: 26px;">After a chat response completes, a <strong>handoff button</strong> appears. One click switches to the next agent with relevant context and a pre-filled prompt — the user stays in control of each step.</p>
+
+      <div style="display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; flex: 1;">
+        <div>
+          <h4 style="font-family: 'JetBrains Mono', monospace; font-size: 24px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-mute); margin: 0 0 16px 0; font-weight: 500;">A typical chain</h4>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="sub-box" style="min-height: auto; padding: 18px 22px;">
+              <div class="role" style="margin-bottom: 4px; font-size: 18px;">Agent · Planner</div>
+              <div style="font-size: 24px; color: var(--ink-soft); line-height: 1.35;">Read-only tools. Produces an implementation plan.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding-left: 28px; font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--accent); letter-spacing: 0.04em;">
+              <svg width="14" height="20" viewBox="0 0 20 28" fill="none"><path d="M10 0 L10 22 M2 18 L10 26 L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Handoff · &#8220;Start Implementation&#8221;</span>
+            </div>
+            <div class="sub-box sub" style="min-height: auto; padding: 18px 22px;">
+              <div class="role" style="margin-bottom: 4px; font-size: 18px;">Agent · Implementer</div>
+              <div style="font-size: 24px; color: var(--ink-soft); line-height: 1.35;">Edit tools unlocked. Executes the plan.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding-left: 28px; font-family: 'JetBrains Mono', monospace; font-size: 24px; color: var(--accent); letter-spacing: 0.04em;">
+              <svg width="14" height="20" viewBox="0 0 20 28" fill="none"><path d="M10 0 L10 22 M2 18 L10 26 L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Handoff · &#8220;Review for Security&#8221;</span>
+            </div>
+            <div class="sub-box" style="min-height: auto; padding: 18px 22px;">
+              <div class="role" style="margin-bottom: 4px; font-size: 18px;">Agent · Reviewer</div>
+              <div style="font-size: 24px; color: var(--ink-soft); line-height: 1.35;">Audits the diff for vulnerabilities.</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="font-family: 'JetBrains Mono', monospace; font-size: 24px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-mute); margin: 0 0 16px 0; font-weight: 500;">Declared in frontmatter</h4>
+          <div style="background: var(--bg-dark); border: 1px solid #333; padding: 22px 26px; color: #ddd;">
+<pre style="margin: 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 20px; line-height: 1.45;"><span style="color:#7a7e85;">---</span>
+<span style="color:oklch(0.78 0.13 250);">name</span>: Planner
+<span style="color:oklch(0.78 0.13 250);">tools</span>: [search, web/fetch]
+<span style="color:oklch(0.78 0.13 250);">handoffs</span>:
+  - <span style="color:oklch(0.78 0.13 250);">label</span>: Start Implementation
+    <span style="color:oklch(0.78 0.13 250);">agent</span>: implementer
+    <span style="color:oklch(0.78 0.13 250);">prompt</span>: Implement the plan.
+    <span style="color:oklch(0.78 0.13 250);">send</span>: false
+<span style="color:#7a7e85;">---</span></pre>
+          </div>
+          <div class="feature-rows" style="margin-top: 18px;">
+            <div class="feature-row" style="padding: 14px 0;">
+              <div class="k">Delegation ≠ handoff</div>
+              <div class="v" style="font-size: 24px;">A subagent runs <em>inside</em> a turn. A handoff ends the turn and gives the user a button.</div>
+            </div>
+            <div class="feature-row" style="padding: 14px 0;">
+              <div class="k">Why it matters</div>
+              <div class="v" style="font-size: 24px;">Review and approve at every boundary — automation with oversight.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18E. AGENT SKILLS -->
+  <section data-label="Agent Skills">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 04 / 08</span><span class="pagenum">23 / 31</span></div>
+      <div class="numlabel">04 · Agent Skills</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Multi-step workflows with scripts</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">A folder with instructions + scripts</div>
+          <ul>
+            <li><span>Packages a domain task — API docs, security audit, DB migration — as instructions plus executable helpers.</span></li>
+            <li><span>Built on an open standard so the same skill works across agent types; see <a href="https://skills.sh" target="_blank" rel="noreferrer" style="color: var(--accent); text-decoration: none; border-bottom: 1px solid currentColor;">skills.sh</a>.</span></li>
+            <li><span>Loads on demand when the task matches the skill description.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Lazy-loaded capability</div>
+          <ul>
+            <li><span>Heavier than a prompt file, cheaper than an always-on tool — solves a <strong>Context Reduction</strong> tradeoff.</span></li>
+            <li><span>Extends <strong>Structured Tools &amp; Permissions</strong> with deterministic scripts the agent doesn't have to re-derive each time.</span></li>
+            <li><span>Acts less like a true <strong>Bounded Subagent</strong> and more like a lazily loaded capability pack — load it when relevant, keep the result or summary.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18F. LANGUAGE MODELS -->
+  <section data-label="Language Models">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 05 / 08</span><span class="pagenum">24 / 31</span></div>
+      <div class="numlabel">05 · Language Models</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Pick the right engine per task</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">Swap the model, keep the harness</div>
+          <ul>
+            <li><span>Choose different models for different chats, modes, or custom agents.</span></li>
+            <li><span>Bring-your-own API key unlocks additional providers beyond the defaults.</span></li>
+            <li><span>A reasoning-heavy model for planning, a fast model for inline edits.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Matches cost to job</div>
+          <ul>
+            <li><span>The harness stays identical — tools, instructions, memory all the same — only the engine swaps.</span></li>
+            <li><span>Lets you run expensive reasoning models only where they earn it, keeping turns cheap elsewhere.</span></li>
+            <li><span>Per-agent model selection pairs naturally with <strong>Bounded Subagents</strong> — cheap model for the helper.</span></li>
+          </ul>
+          <div style="margin-top: 18px; background: #fff; border: 1px solid var(--rule); padding: 12px;">
+            <img src="models.png" alt="Model selection menu" class="zoomable-image" tabindex="0" style="display: block; width: 100%; max-height: 280px; object-fit: contain; object-position: center top;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18G. MCP -->
+  <section data-label="MCP">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 06 / 08</span><span class="pagenum">25 / 31</span></div>
+      <div class="numlabel">06 · MCP</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Connect external tools and data</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">Model Context Protocol servers</div>
+          <ul>
+            <li><span>An open standard for exposing tools, resources, and prompts to any MCP-aware agent.</span></li>
+            <li><span>Servers can run locally or remotely and reach databases, APIs, cloud services, and more.</span></li>
+            <li><span>Tools appear in the harness's tool list just like built-ins.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Grows tool reach without rebuilding it</div>
+          <ul>
+            <li><span>Without MCP the agent can only work with code and the terminal — MCP extends its reach.</span></li>
+            <li><span>Every new server inherits the harness's validation, approval, and logging — no ad-hoc plumbing.</span></li>
+            <li><span>Pairs with custom agents to scope <em>which</em> MCP tools a given persona can use.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18H. HOOKS -->
+  <section data-label="Hooks">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 07 / 08</span><span class="pagenum">26 / 31</span></div>
+      <div class="numlabel">07 · Hooks</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Deterministic code at lifecycle points</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">Shell commands on events</div>
+          <ul>
+            <li><span>Run a formatter after every file edit, block commits that fail a lint check, or log every tool call for audit.</span></li>
+            <li><span>Instructions guide what the AI <em>does</em>; hooks guarantee what actually <em>runs</em>.</span></li>
+            <li><span>Triggered at defined points in the agent's session lifecycle.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Adds non-negotiable steps</div>
+          <ul>
+            <li><span>Closes gaps in <strong>Structured Tools &amp; Permissions</strong> — enforce a policy the model cannot skip.</span></li>
+            <li><span>Runs outside the LLM loop, so hook cost is flat — doesn't inflate context or token spend.</span></li>
+            <li><span>A natural companion to &#8220;approval gates&#8221; — trust the model more, verify with code.</span></li>
+          </ul>
+          <div style="margin-top: 18px; background: #fff; border: 1px solid var(--rule); padding: 12px;">
+            <img src="hooks.png" alt="Hook events table" class="zoomable-image" tabindex="0" style="display: block; width: 100%; max-height: 280px; object-fit: contain; object-position: center top;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18I. PLUGINS -->
+  <section data-label="Plugins">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot · 08 / 08</span><span class="pagenum">27 / 31</span></div>
+      <div class="numlabel">08 · Agent Plugins</div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 32px;">Install pre-packaged bundles</h2>
+      <div class="split">
+        <div>
+          <h4>What it is</h4>
+          <div class="col-title">A bundle of the other seven</div>
+          <ul>
+            <li><span>Discoverable bundles from plugin marketplaces (<a href="https://awesome-copilot.github.com/" target="_blank" rel="noreferrer" style="color: var(--accent); text-decoration: none; border-bottom: 1px solid currentColor;">awesome-copilot.github.com</a>).</span></li>
+            <li><span>A single plugin can ship slash commands, skills, custom agents, hooks, and MCP servers together.</span></li>
+            <li><span>Good for adopting community best practices or sharing internal tooling.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Harness impact</h4>
+          <div class="col-title">Distribution layer</div>
+          <ul>
+            <li><span>Not a new harness capability — a way to install the seven others as a coherent set.</span></li>
+            <li><span>Turns &#8220;customize your harness&#8221; into a package-manager experience.</span></li>
+            <li><span>Makes internal tooling reproducible across an org: one install, same harness.</span></li>
+          </ul>
+          <div style="margin-top: 18px; background: #fff; border: 1px solid var(--rule); padding: 12px;">
+            <img src="plugins.png" alt="Agent plugins list" class="zoomable-image" tabindex="0" style="display: block; width: 100%; max-height: 280px; object-fit: contain; object-position: center top;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Create Agent UI">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Customization VS Code + GitHub Copilot</span><span class="pagenum">28 / 31</span></div>
+      <h2 class="title" style="font-size: 60px; margin-bottom: 28px;">Customization VS Code + GitHub Copilot</h2>
+      <div style="flex: 1; background: #fff; border: 1px solid var(--rule); padding: 18px; display: flex; align-items: center; justify-content: center;">
+        <img src="create-custom-agent.png" alt="Create custom agent dialog" class="zoomable-image" tabindex="0" style="display: block; width: 100%; max-height: 780px; object-fit: contain; object-position: center;">
+      </div>
+    </div>
+  </section>
+
+  <!-- 18J. CUSTOMIZATION MAPPING TABLE -->
+  <section data-label="Customization Mapping">
+    <div class="slide-frame">
+      <div class="slide-head"><span class="eyebrow">Synthesis</span><span class="pagenum">29 / 31</span></div>
+      <h2 class="title" style="font-size: 56px; margin-bottom: 32px;">The eight levers, and which components they shape</h2>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Customization</th>
+            <th>Primary purpose</th>
+            <th>Components strengthened</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="label">01</td><td class="concept">Instructions</td><td class="desc">Project-wide rules &amp; standards</td><td class="map">Live Repo Context · Prompt Shape &amp; Cache Reuse · Structured Session Memory</td></tr>
+          <tr><td class="label">02</td><td class="concept">Prompt Files</td><td class="desc">Slash commands for repeat tasks</td><td class="map">Prompt Shape &amp; Cache Reuse · Structured Tools &amp; Permissions · Context Reduction</td></tr>
+          <tr><td class="label">03</td><td class="concept">Custom Agents</td><td class="desc">Personas with scoped tools</td><td class="map">Structured Tools &amp; Permissions · Bounded Subagents</td></tr>
+          <tr><td class="label">04</td><td class="concept">Agent Skills</td><td class="desc">Multi-step capability packs</td><td class="map">Structured Tools &amp; Permissions · Context Reduction · Bounded Subagents</td></tr>
+          <tr><td class="label">05</td><td class="concept">Language Models</td><td class="desc">Engine per task</td><td class="map">Cross-cutting · pairs with Bounded Subagents</td></tr>
+          <tr><td class="label">06</td><td class="concept">MCP</td><td class="desc">External tools &amp; data</td><td class="map">Structured Tools &amp; Permissions (reach beyond local)</td></tr>
+          <tr><td class="label">07</td><td class="concept">Hooks</td><td class="desc">Deterministic lifecycle code</td><td class="map">Structured Tools &amp; Permissions · Context Reduction</td></tr>
+          <tr><td class="label">08</td><td class="concept">Plugins</td><td class="desc">Bundled distribution</td><td class="map">All of the above</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 18. SIDE-BY-SIDE MAPPING -->
+  <section data-label="Mapping Table">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">Synthesis</span>
+        <span class="pagenum">30 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 56px; margin-bottom: 40px;">The six, side by side</h2>
+
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Concept</th>
+            <th>What it does</th>
+            <th>In GitHub Copilot / VS Code</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label">01</td>
+            <td class="concept">Live Repo Context</td>
+            <td class="desc">Stable facts about the workspace</td>
+            <td class="map"><span class="mono">#codebase</span>, <span class="mono">@workspace</span>, instruction files</td>
+          </tr>
+          <tr>
+            <td class="label">02</td>
+            <td class="concept">Prompt Shape &amp; Cache</td>
+            <td class="desc">Stable prefix vs. changing tail</td>
+            <td class="map"><span class="mono">copilot-instructions.md</span>, <span class="mono">.prompt.md</span>, context vars</td>
+          </tr>
+          <tr>
+            <td class="label">03</td>
+            <td class="concept">Structured Tools</td>
+            <td class="desc">Named tools, validated, approved</td>
+            <td class="map">Ask / Edit / Agent modes, built-in tools, MCP</td>
+          </tr>
+          <tr>
+            <td class="label">04</td>
+            <td class="concept">Context Reduction</td>
+            <td class="desc">Clip, dedupe, summarize</td>
+            <td class="map">Summarize Conversation, new-chat reset</td>
+          </tr>
+          <tr>
+            <td class="label">05</td>
+            <td class="concept">Session Memory</td>
+            <td class="desc">Transcript + working memory</td>
+            <td class="map">Persisted chats, custom modes, user instructions</td>
+          </tr>
+          <tr>
+            <td class="label">06</td>
+            <td class="concept">Bounded Subagents</td>
+            <td class="desc">Delegated side tasks with limits</td>
+            <td class="map">Agent mode, MCP subtasks, Copilot coding agent</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 19. TAKEAWAYS -->
+  <section data-label="Takeaways">
+    <div class="slide-frame">
+      <div class="slide-head">
+        <span class="eyebrow">Close</span>
+        <span class="pagenum">31 / 31</span>
+      </div>
+      <h2 class="title" style="font-size: 76px; margin-bottom: 56px;">Three takeaways</h2>
+      <div style="display: flex; flex-direction: column; gap: 0; flex: 1;">
+        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 40px; padding: 36px 0; border-top: 1px solid var(--rule); align-items: baseline;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 32px; color: var(--accent);">01</div>
+          <div>
+            <div style="font-size: 40px; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.015em;">The harness is the product.</div>
+            <div style="font-size: 26px; color: var(--ink-soft); line-height: 1.4;">Once top models are close in raw capability, context, tools, and state-management are what differentiate one coding tool from another.</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 40px; padding: 36px 0; border-top: 1px solid var(--rule); align-items: baseline;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 32px; color: var(--accent);">02</div>
+          <div>
+            <div style="font-size: 40px; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.015em;">Context quality beats raw context length.</div>
+            <div style="font-size: 26px; color: var(--ink-soft); line-height: 1.4;">Longer windows help, but compaction, deduplication, and a stable prefix matter more than token count alone.</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 40px; padding: 36px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); align-items: baseline;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 32px; color: var(--accent);">03</div>
+          <div>
+            <div style="font-size: 40px; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.015em;">Copilot in VS Code shows all six patterns.</div>
+            <div style="font-size: 26px; color: var(--ink-soft); line-height: 1.4;">Instruction files, tool modes, summarization, persisted chats, and agent delegation each map cleanly to one of the six components.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</deck-stage>
+
+<div class="image-lightbox" id="image-lightbox" aria-hidden="true">
+  <img id="image-lightbox-img" alt="Expanded slide image">
+</div>
+
+<script>
+  (() => {
+    const lightbox = document.getElementById('image-lightbox');
+    const lightboxImage = document.getElementById('image-lightbox-img');
+    const zoomableImages = document.querySelectorAll('.zoomable-image');
+
+    function openLightbox(image) {
+      lightboxImage.src = image.getAttribute('src');
+      lightboxImage.alt = image.getAttribute('alt') || 'Expanded slide image';
+      lightbox.classList.add('is-open');
+      lightbox.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('is-open');
+      lightbox.setAttribute('aria-hidden', 'true');
+      lightboxImage.removeAttribute('src');
+      document.body.style.overflow = '';
+    }
+
+    zoomableImages.forEach((image) => {
+      image.addEventListener('click', () => openLightbox(image));
+      image.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openLightbox(image);
+        }
+      });
+    });
+
+    lightbox.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && lightbox.classList.contains('is-open')) {
+        closeLightbox();
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
